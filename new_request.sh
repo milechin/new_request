@@ -90,6 +90,10 @@ cat > env_setup/r_env.sh << EOF
 # only R packages associated with this request environment 
 # are available during the R session
 
+# Example command:
+#   source env_setup/r_env.sh R/4.4.0
+#
+
 ## ARGUMENTS ##
 R_MODULE=\$1		# Define a specific module to load
 
@@ -135,6 +139,10 @@ cat > env_setup/py_virtenv.sh << EOF
 # Load a python module and then
 # create a virtualenv with site packages
 # included.
+
+# Example command:
+#   source env_setup/py_virtenv.sh python3/3.12.4
+#
 
 ## ARGUMENTS ##
 PY_MODULE=\$1		# Define a specific module to load
