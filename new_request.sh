@@ -181,11 +181,11 @@ fi
 # Check if the virtual environment already exist at \$PY_VIRT_DIR
 # if not, create it.
 if [ -d \${PY_VIRT_DIR} ]; then
-    printf "Found virtualenv at:\n \${PY_VIRT_DIR}\n"
+    printf "Found virtual environment at:\n \${PY_VIRT_DIR}\n"
 
 else
-    printf "Creating a virtualenv at:\n \${PY_VIRT_DIR}\n"
-    virtualenv --system-site-package \${PY_VIRT_DIR}
+    printf "Creating a virtual environment at:\n \${PY_VIRT_DIR}\n"
+    python3 -m venv --system-site-packages \${PY_VIRT_DIR}
 fi
 
 # Activate the environment.
