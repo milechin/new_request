@@ -26,11 +26,15 @@ Initialized empty Git repository in /projectnb/dvm-rcs/client/bob/123456/.git/
 
 The script will also generate a `.gitignore` file with the following contents:
 
-```
-
-```
+https://github.com/milechin/new_request/blob/a57c0438959f6d932095db86f053476db39b7a09/new_request.sh#L74-L76
 
 Additionally, two helper bash scripts will be generated in the `env_setup` directory.  
+
+ - `env_setup/r_env.sh`
+https://github.com/milechin/new_request/blob/ee0cd68a4b3f087c7cfc345e55af96c1aa75af0f/new_request.sh#L85-L96
+
+- `env_setup/py_virtenv.sh`
+https://github.com/milechin/new_request/blob/ee0cd68a4b3f087c7cfc345e55af96c1aa75af0f/new_request.sh#L140-L147
 
 ## Directory Structure
 
