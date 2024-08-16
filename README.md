@@ -1,7 +1,7 @@
 # New Request
 ## Description
 
-As an HPC facilitator I assist researchers troubleshooting their code or optimizing their code.  To keep my work organized I created this bash script that generates a directory structure to support my work for any new request I recieve.  
+As an HPC facilitator I assist researchers with troubleshooting their code or optimizing their code.  To keep my work organized I created this bash script that generates a directory structure to support my work for any new request I recieve.  
 
 ## Requirements
 
