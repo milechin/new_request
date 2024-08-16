@@ -82,6 +82,7 @@ EOF
 cat > env_setup/r_env.sh << EOF
 #!/bin/bash -l
 
+# DESCRIPTION
 # Load an R module and set the $R_LIBS_USER environment
 # variable so that any R packages installed will
 # be installed in the new request directory.
@@ -136,6 +137,7 @@ EOF
 cat > env_setup/py_virtenv.sh << EOF
 #!/bin/bash -l
 
+# DESCRIPTION
 # Load a python module and then
 # create a virtualenv with site packages
 # included.
