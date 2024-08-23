@@ -120,19 +120,25 @@ fi
 
 # Load the R module and set the \$R_LIBS_USER path
 module load \${R_MODULE}
-export R_LIBS_USER=${NEW_DIR}/\${R_DIR}
+EXIT_CODE=\$?
+
+if [ \${EXIT_CODE} -eq 0 ]; then
+  export R_LIBS_USER=${NEW_DIR}/\${R_DIR}
 
 
-# Check if the \$R_LIBS_USER directory exits.
-# If not, create it.
-if [ ! -d \${R_LIBS_USER} ]; then
-    mkdir -p \${R_LIBS_USER}
-fi
+  # Check if the \$R_LIBS_USER directory exits.
+  # If not, create it.
+  if [ ! -d \${R_LIBS_USER} ]; then
+      mkdir -p \${R_LIBS_USER}
+  fi
 
-if ! grep -Fxq "\${R_DIR}" ${NEW_DIR}/.gitignore
-then
-    # Add the library directory to gitignore
-    echo \${R_DIR} >> ${NEW_DIR}/.gitignore
+  if ! grep -Fxq "\${R_DIR}" ${NEW_DIR}/.gitignore
+  then
+      # Add the library directory to gitignore
+      echo \${R_DIR} >> ${NEW_DIR}/.gitignore
+  fi
+else
+  printf "ERROR: Failed to load module \${R_MODULE}.\n\n"
 fi
 
 EOF
@@ -177,21 +183,27 @@ fi
 
 # Load the python module
 module load \${PY_MODULE}
+EXIT_CODE=\$?
 
-# Check if the virtual environment already exist at \$PY_VIRT_DIR
-# if not, create it.
-if [ -d \${BASE_DIR}/\${PY_VIRT_DIR} ]; then
-    printf "Found virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
+if [ \${EXIT_CODE} -eq 0 ]; then
+  # Check if the virtual environment already exist at \$PY_VIRT_DIR
+  # if not, create it.
+  if [ -d \${BASE_DIR}/\${PY_VIRT_DIR} ]; then
+      printf "Found virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
 
+  else
+      printf "Creating a virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
+      python3 -m venv --system-site-packages \${PY_VIRT_DIR}
+
+      echo \${PY_VIRT_DIR}/ >> ${NEW_DIR}/.gitignore
+  fi
+
+  # Activate the environment.
+  source \${PY_VIRT_DIR}/bin/activate
+ 
 else
-    printf "Creating a virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
-    python3 -m venv --system-site-packages \${PY_VIRT_DIR}
-
-    echo \${PY_VIRT_DIR}/ >> ${NEW_DIR}/.gitignore
-fi
-
-# Activate the environment.
-source \${PY_VIRT_DIR}/bin/activate
+    printf "ERROR: Failed to load module \${PY_MODULE}.\n\n"
+fi 
 
 EOF
 
