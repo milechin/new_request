@@ -109,30 +109,30 @@ if [ -z "\$R_MODULE" ]; then
   # If R Module is not provided as an argument, use 
   # the default values.
 
-  module load \${R_MODULE_DEFAULT}
-  export R_LIBS_USER=${NEW_DIR}/env_setup/\${R_DEFAULT_DIR}
-
-  # Add the library directory to gitignore
-  echo env_setup/\${R_DEFAULT_DIR}/ >>${NEW_DIR}/.gitignore
+  R_MODULE=\${R_MODULE_DEFAULT}
+  R_DIR=env_setup/\${R_DEFAULT_DIR}/
 
 else
 
-  # If R module is provided, load that module 
-  # and define \$R_LIBS_USER
-  # based on this module name.
+  R_DIR=env_setup/\${R_MODULE}/
 
-  module load \${R_MODULE}
-  export R_LIBS_USER=${NEW_DIR}/env_setup/\${R_MODULE}
-
-  # Add the library directory to gitignore
-  echo env_setup/\${R_MODULE}/ >> ${NEW_DIR}/.gitignore
 fi
+
+# Load the R module and set the \$R_LIBS_USER path
+module load \${R_MODULE}
+export R_LIBS_USER=${NEW_DIR}/\${R_DIR}
 
 
 # Check if the \$R_LIBS_USER directory exits.
 # If not, create it.
 if [ ! -d \${R_LIBS_USER} ]; then
     mkdir -p \${R_LIBS_USER}
+fi
+
+if ! grep -Fxq "\${R_DIR}" ${NEW_DIR}/.gitignore
+then
+    # Add the library directory to gitignore
+    echo \${R_DIR} >> ${NEW_DIR}/.gitignore
 fi
 
 EOF
@@ -161,38 +161,33 @@ PY_MODULE_DEFAULT=python3	# Define a default module to load if no
 			# module is provided as argument. 
 PY_DEFAULT_DIR=\${PY_MODULE_DEFAULT}/default  # Define a virtualenv path name for the default Python module
 
+BASE_DIR=${NEW_DIR}/env_setup
 
 # Check if a Python module was specified as an argument.
 if [ -z "\$PY_MODULE" ]; then
   # If a Python module is not provided as an argument, use 
   # the default values.
   
-  module load \${PY_MODULE_DEFAULT}
-  PY_VIRT_DIR=${NEW_DIR}/env_setup/\${PY_DEFAULT_DIR}
-
-  # Add the library directory to gitignore
-  echo env_setup/\${PY_DEFAULT_DIR}/ >> ${NEW_DIR}/.gitignore
+  PY_MODULE=\${PY_MODULE_DEFAULT}
+  PY_VIRT_DIR=env_setup/\${PY_DEFAULT_DIR}
 
 else
-
-  # If a Python module is provided, load that module 
-  # and define \$PY_VIRT_DIR based on the module name
-
-  module load \${PY_MODULE}
-  PY_VIRT_DIR=${NEW_DIR}/env_setup/\${PY_MODULE}
-
-  # Add the library directory to gitignore
-  echo env_setup/\${PY_MODULE}/ >> ${NEW_DIR}/.gitignore
+  PY_VIRT_DIR=env_setup/\${PY_MODULE}
 fi
+
+# Load the python module
+module load \${PY_MODULE}
 
 # Check if the virtual environment already exist at \$PY_VIRT_DIR
 # if not, create it.
-if [ -d \${PY_VIRT_DIR} ]; then
-    printf "Found virtual environment at:\n \${PY_VIRT_DIR}\n"
+if [ -d \${BASE_DIR}/\${PY_VIRT_DIR} ]; then
+    printf "Found virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
 
 else
-    printf "Creating a virtual environment at:\n \${PY_VIRT_DIR}\n"
+    printf "Creating a virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
     python3 -m venv --system-site-packages \${PY_VIRT_DIR}
+
+    echo \${PY_VIRT_DIR}/ >> ${NEW_DIR}/.gitignore
 fi
 
 # Activate the environment.
