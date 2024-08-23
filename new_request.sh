@@ -118,7 +118,7 @@ if [ -z "\$R_MODULE" ]; then
 else
 
   # If R module is provided, load that module 
-  #and define \$R_LIBS_USER
+  # and define \$R_LIBS_USER
   # based on this module name.
 
   module load \${R_MODULE}
@@ -126,6 +126,13 @@ else
 
   # Add the library directory to gitignore
   echo env_setup/\${R_MODULE}/ >> ${NEW_DIR}/.gitignore
+fi
+
+
+# Check if the \$R_LIBS_USER directory exits.
+# If not, create it.
+if [ ! -d \${R_LIBS_USER} ]; then
+    mkdir -p \${R_LIBS_USER}
 fi
 
 EOF
