@@ -70,6 +70,8 @@ mkdir -p output		# Directory to store any outputs generated
 
 # Create a gitignore file for known files we don't
 # want to track using git.
+
+# TODO: #3 Add bash helper scripts to .gitignore
 cat > .gitignore << EOF
 data/
 .gitignore
