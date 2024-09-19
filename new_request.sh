@@ -143,10 +143,13 @@ if [ \${EXIT_CODE} -eq 0 ]; then
   fi
 
   # Create an activate script for this environment
-  echo "#!/usr/bin/bash -l" > ${NEW_DIR}/env_setup/r_activate.R 
-  echo "module load \${R_MODULE}" >> ${NEW_DIR}/env_setup/r_activate.R
-  echo "export R_LIBS_USER=${NEW_DIR}/\${R_DIR}" >> ${NEW_DIR}/env_setup/r_activate.R
+  ACTIVATE_FILE=env_setup/r_activate.sh 
+  echo "#!/usr/bin/bash -l" > ${NEW_DIR}/\${ACTIVATE_FILE} 
+  echo "module load \${R_MODULE}" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
+  echo "export R_LIBS_USER=${NEW_DIR}/\${R_DIR}" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
 
+  # Add the r_activate.sh file to .gitignore
+  echo \${ACTIVATE_FILE} >> ${NEW_DIR}/.gitignore
 
 else
   printf "ERROR: Failed to load module \${R_MODULE}.\n\n"
