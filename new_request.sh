@@ -114,11 +114,11 @@ if [ -z "\$R_MODULE" ]; then
   # the default values.
 
   R_MODULE=\${R_MODULE_DEFAULT}
-  R_DIR=env_setup/\${R_DEFAULT_DIR}/
+  R_DIR=${NEW_DIR}/env_setup/\${R_DEFAULT_DIR}/
 
 else
 
-  R_DIR=env_setup/\${R_MODULE}/
+  R_DIR=${NEW_DIR}/env_setup/\${R_MODULE}/
 
 fi
 
@@ -141,6 +141,13 @@ if [ \${EXIT_CODE} -eq 0 ]; then
       # Add the library directory to gitignore
       echo \${R_DIR} >> ${NEW_DIR}/.gitignore
   fi
+
+  # Create an activate script for this environment
+  echo "#!/usr/bin/bash -l" > ${NEW_DIR}/env_setup/r_activate.R 
+  echo "module load \${R_MODULE}" >> ${NEW_DIR}/env_setup/r_activate.R
+  echo "export R_LIBS_USER=${NEW_DIR}/\${R_DIR}" >> ${NEW_DIR}/env_setup/r_activate.R
+
+
 else
   printf "ERROR: Failed to load module \${R_MODULE}.\n\n"
 fi
