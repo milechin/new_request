@@ -76,6 +76,8 @@ cat > .gitignore << EOF
 data/
 .gitignore
 output/
+env_setup/r_env.sh
+env_setup/py_virtenv.sh
 EOF
 
 # Create a helper bash script for creating
