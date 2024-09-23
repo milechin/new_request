@@ -127,7 +127,7 @@ module load \${R_MODULE}
 EXIT_CODE=\$?
 
 if [ \${EXIT_CODE} -eq 0 ]; then
-  export R_LIBS_USER=${NEW_DIR}/\${R_DIR}
+  export R_LIBS_USER=${R_DIR}
 
 
   # Check if the \$R_LIBS_USER directory exits.
