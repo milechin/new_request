@@ -136,10 +136,10 @@ if [ \${EXIT_CODE} -eq 0 ]; then
       mkdir -p \${R_LIBS_USER}
   fi
 
-  if ! grep -Fxq "\${R_DIR}" ${NEW_DIR}/.gitignore
+  if ! grep -Fxq "env_setup/\${R_MODULE}" ${NEW_DIR}/.gitignore
   then
       # Add the library directory to gitignore
-      echo \${R_DIR} >> ${NEW_DIR}/.gitignore
+      echo env_setup/\${R_MODULE} >> ${NEW_DIR}/.gitignore
   fi
 
   # Create an activate script for this environment
