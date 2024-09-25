@@ -148,6 +148,11 @@ if [ \${EXIT_CODE} -eq 0 ]; then
   echo "module load \${R_MODULE}" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
   echo "export R_LIBS_USER=\${R_DIR}" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
 
+  # Outputing information about the environment.
+  echo "echo Activating R Environment" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
+  echo "R_LIBS_USER=\${R_LIBS_USER}" >> ${NEW_DIR}/\${ACTIVATE_FILE}
+  echo "module list" >>  ${NEW_DIR}/\${ACTIVATE_FILE} 
+
   # Add the r_activate.sh file to .gitignore
   echo \${ACTIVATE_FILE} >> ${NEW_DIR}/.gitignore
 
