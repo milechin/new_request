@@ -186,7 +186,7 @@ PY_MODULE_DEFAULT=python3	# Define a default module to load if no
 			# module is provided as argument. 
 PY_DEFAULT_DIR=\${PY_MODULE_DEFAULT}/default  # Define a virtualenv path name for the default Python module
 
-BASE_DIR=${NEW_DIR}/env_setup
+BASE_DIR=${NEW_DIR}
 
 # Check if a Python module was specified as an argument.
 if [ -z "\$PY_MODULE" ]; then
