@@ -30,11 +30,21 @@ https://github.com/milechin/new_request/blob/a57c0438959f6d932095db86f053476db39
 
 Additionally, two helper bash scripts will be generated in the `env_setup` directory.  
 
- - `env_setup/r_env.sh`
-https://github.com/milechin/new_request/blob/ee0cd68a4b3f087c7cfc345e55af96c1aa75af0f/new_request.sh#L85-L96
+ - `r_env.sh` - This bash scripts will load the specified module, create a directory to install packages, install packages that are required for VSCode, and generate an 'r_activate.sh' script for activating the environment (Load the appropriate module and set `R_LIBS_USER` environment variable.).
 
-- `env_setup/py_virtenv.sh`
-https://github.com/milechin/new_request/blob/ee0cd68a4b3f087c7cfc345e55af96c1aa75af0f/new_request.sh#L140-L147
+ Example Usage
+
+ ```console
+    source r_env.sh R/4.4.0
+ ```
+
+- `env_setup/py_virtenv.sh` - This is a helper bash script for creating a new python virtual environment or loading an existing one.  The virtual environment created will be named after the python module specified.
+
+Example Usage
+
+```console
+    source py_virtenv.sh python3/3.12.4
+```
 
 ## Directory Structure
 
