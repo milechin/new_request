@@ -156,6 +156,10 @@ if [ \${EXIT_CODE} -eq 0 ]; then
   # Add the r_activate.sh file to .gitignore
   echo \${ACTIVATE_FILE} >> ${NEW_DIR}/.gitignore
 
+  # Install R Packages required for VSCode usage
+  R -e "install.packages(c('languageserver'), lib='\${R_LIBS_USER}', repos='https://cran.rstudio.com/')"
+  R -e "install.packages('vscDebugger', repos = 'https://manuelhentschel.r-universe.dev')"
+
 else
   printf "ERROR: Failed to load module \${R_MODULE}.\n\n"
 fi
@@ -186,7 +190,7 @@ PY_MODULE_DEFAULT=python3	# Define a default module to load if no
 			# module is provided as argument. 
 PY_DEFAULT_DIR=\${PY_MODULE_DEFAULT}/default  # Define a virtualenv path name for the default Python module
 
-BASE_DIR=${NEW_DIR}/env_setup
+BASE_DIR=${NEW_DIR}
 
 # Check if a Python module was specified as an argument.
 if [ -z "\$PY_MODULE" ]; then
@@ -208,7 +212,7 @@ if [ \${EXIT_CODE} -eq 0 ]; then
   # Check if the virtual environment already exist at \$PY_VIRT_DIR
   # if not, create it.
   if [ -d \${BASE_DIR}/\${PY_VIRT_DIR} ]; then
-      printf "Found virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
+      printf "Found a virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
 
   else
       printf "Creating a virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
@@ -216,10 +220,6 @@ if [ \${EXIT_CODE} -eq 0 ]; then
 
       echo \${PY_VIRT_DIR}/ >> ${NEW_DIR}/.gitignore
   fi
-
-  # Activate the environment.
-  source \${PY_VIRT_DIR}/bin/activate
- 
 else
     printf "ERROR: Failed to load module \${PY_MODULE}.\n\n"
 fi 
