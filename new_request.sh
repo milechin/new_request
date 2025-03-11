@@ -156,6 +156,10 @@ if [ \${EXIT_CODE} -eq 0 ]; then
   # Add the r_activate.sh file to .gitignore
   echo \${ACTIVATE_FILE} >> ${NEW_DIR}/.gitignore
 
+  # Install R Packages required for VSCode usage
+  R -e "install.packages(c('languageserver'), lib='\${R_LIBS_USER}', repos='https://cran.rstudio.com/')"
+  R -e "install.packages('vscDebugger', repos = 'https://manuelhentschel.r-universe.dev')"
+
 else
   printf "ERROR: Failed to load module \${R_MODULE}.\n\n"
 fi
