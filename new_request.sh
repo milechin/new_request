@@ -86,7 +86,7 @@ EOF
 
 # Create am sh script to specify modules and environment.
 SCC_ENV_FILE=module_load.sh 
-echo "#!/usr/bin/bash -l" > ${NEW_DIR}/\${SCC_ENV_FILE} 
+echo "#!/usr/bin/bash -l" > ${NEW_DIR}/${SCC_ENV_FILE} 
 
 # Create a helper bash script for creating
 # an isolated R environment, which can be sourced
@@ -172,65 +172,6 @@ fi
 
 EOF
 
-
-# Create a helper bash script that can be sourced
-# to create a python virtualenv environment.
-
-cat > env_setup/py_virtenv.sh << EOF
-#!/bin/bash -l
-
-# DESCRIPTION
-# Load a python module and then
-# create a virtualenv with site packages
-# included.
-
-# Example command:
-#   source env_setup/py_virtenv.sh python3/3.12.4
-#
-
-## ARGUMENTS ##
-PY_MODULE=\$1		# Define a specific module to load
-
-## DEFAULTS ##
-PY_MODULE_DEFAULT=python3	# Define a default module to load if no
-			# module is provided as argument. 
-PY_DEFAULT_DIR=\${PY_MODULE_DEFAULT}/default  # Define a virtualenv path name for the default Python module
-
-BASE_DIR=${NEW_DIR}
-
-# Check if a Python module was specified as an argument.
-if [ -z "\$PY_MODULE" ]; then
-  # If a Python module is not provided as an argument, use 
-  # the default values.
-  
-  PY_MODULE=\${PY_MODULE_DEFAULT}
-  PY_VIRT_DIR=env_setup/\${PY_DEFAULT_DIR}
-
-else
-  PY_VIRT_DIR=env_setup/\${PY_MODULE}
-fi
-
-# Load the python module
-module load \${PY_MODULE}
-EXIT_CODE=\$?
-
-if [ \${EXIT_CODE} -eq 0 ]; then
-  # Check if the virtual environment already exist at \$PY_VIRT_DIR
-  # if not, create it.
-  if [ -d \${BASE_DIR}/\${PY_VIRT_DIR} ]; then
-      printf "Found a virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
-
-  else
-      printf "Creating a virtual environment at:\n \${BASE_DIR}/\${PY_VIRT_DIR}\n"
-      python3 -m venv --system-site-packages \${PY_VIRT_DIR}
-
-      echo \${PY_VIRT_DIR}/ >> ${NEW_DIR}/.gitignore
-  fi
-else
-    printf "ERROR: Failed to load module \${PY_MODULE}.\n\n"
-fi 
-
-EOF
 
 
 # Initialize the new request directory as a git repository
