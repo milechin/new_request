@@ -68,6 +68,8 @@ mkdir -p scripts	# Directory to store the client's scripts
 mkdir -p output		# Directory to store any outputs generated
 			# by the client's scripts.
 
+
+
 # Create a gitignore file for known files we don't
 # want to track using git.
 
@@ -81,6 +83,10 @@ env_setup/py_virtenv.sh
 .venv
 .conda
 EOF
+
+# Create am sh script to specify modules and environment.
+SCC_ENV_FILE=module_load.sh 
+echo "#!/usr/bin/bash -l" > ${NEW_DIR}/\${SCC_ENV_FILE} 
 
 # Create a helper bash script for creating
 # an isolated R environment, which can be sourced
@@ -145,18 +151,16 @@ if [ \${EXIT_CODE} -eq 0 ]; then
   fi
 
   # Create an activate script for this environment
-  ACTIVATE_FILE=module_load.sh 
-  echo "#!/usr/bin/bash -l" > ${NEW_DIR}/\${ACTIVATE_FILE} 
-  echo "module load \${R_MODULE}" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
-  echo "export R_LIBS_USER=\${R_DIR}" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
+  echo "module load \${R_MODULE}" >> ${NEW_DIR}/${SCC_ENV_FILE} 
+  echo "export R_LIBS_USER=\${R_DIR}" >> ${NEW_DIR}/${SCC_ENV_FILE} 
 
   # Outputing information about the environment.
-  echo "echo Activating R Environment" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
-  echo "R_LIBS_USER=\${R_LIBS_USER}" >> ${NEW_DIR}/\${ACTIVATE_FILE}
-  echo "module list" >>  ${NEW_DIR}/\${ACTIVATE_FILE} 
+  echo "echo Activating R Environment" >> ${NEW_DIR}/${SCC_ENV_FILE} 
+  echo "R_LIBS_USER=\${R_LIBS_USER}" >> ${NEW_DIR}/${SCC_ENV_FILE}
+  echo "module list" >>  ${NEW_DIR}/${SCC_ENV_FILE} 
 
   # Add the module_load.sh file to .gitignore
-  echo \${ACTIVATE_FILE} >> ${NEW_DIR}/.gitignore
+  echo \${SCC_ENV_FILE} >> ${NEW_DIR}/.gitignore
 
   # Install R Packages required for VSCode usage
   R -e "install.packages(c('languageserver'), lib='\${R_LIBS_USER}', repos='https://cran.rstudio.com/')"
