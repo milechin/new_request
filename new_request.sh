@@ -78,6 +78,8 @@ data/
 output/
 env_setup/r_env.sh
 env_setup/py_virtenv.sh
+.venv
+.conda
 EOF
 
 # Create a helper bash script for creating
