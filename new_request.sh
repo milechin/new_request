@@ -116,11 +116,11 @@ if [ -z "\$R_MODULE" ]; then
   # the default values.
 
   R_MODULE=\${R_MODULE_DEFAULT}
-  R_DIR=${NEW_DIR}/env_setup/\${R_DEFAULT_DIR}/
+  R_DIR=${NEW_DIR}/\${R_DEFAULT_DIR}/
 
 else
 
-  R_DIR=${NEW_DIR}/env_setup/\${R_MODULE}/
+  R_DIR=${NEW_DIR}/\${R_MODULE}/
 
 fi
 
@@ -138,14 +138,14 @@ if [ \${EXIT_CODE} -eq 0 ]; then
       mkdir -p \${R_LIBS_USER}
   fi
 
-  if ! grep -Fxq "env_setup/\${R_MODULE}" ${NEW_DIR}/.gitignore
+  if ! grep -Fxq "\${R_MODULE}" ${NEW_DIR}/.gitignore
   then
       # Add the library directory to gitignore
-      echo env_setup/\${R_MODULE} >> ${NEW_DIR}/.gitignore
+      echo \${R_MODULE} >> ${NEW_DIR}/.gitignore
   fi
 
   # Create an activate script for this environment
-  ACTIVATE_FILE=env_setup/r_activate.sh 
+  ACTIVATE_FILE=module_load.sh 
   echo "#!/usr/bin/bash -l" > ${NEW_DIR}/\${ACTIVATE_FILE} 
   echo "module load \${R_MODULE}" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
   echo "export R_LIBS_USER=\${R_DIR}" >> ${NEW_DIR}/\${ACTIVATE_FILE} 
@@ -155,7 +155,7 @@ if [ \${EXIT_CODE} -eq 0 ]; then
   echo "R_LIBS_USER=\${R_LIBS_USER}" >> ${NEW_DIR}/\${ACTIVATE_FILE}
   echo "module list" >>  ${NEW_DIR}/\${ACTIVATE_FILE} 
 
-  # Add the r_activate.sh file to .gitignore
+  # Add the module_load.sh file to .gitignore
   echo \${ACTIVATE_FILE} >> ${NEW_DIR}/.gitignore
 
   # Install R Packages required for VSCode usage
