@@ -38,6 +38,8 @@ By contrast, `templates/r_snapshot.sh` is a **static, path-independent** file: i
 The generated helper is meant to be `source`d (`source env_setup/r_env.sh R/4.4.0`), not executed. It:
 1. Loads the given LMOD R module (default `R`), and on success sets `R_LIBS_USER` to a per-module library dir inside the request folder, creating it if needed.
 2. Appends a self-contained R activation block (`module load` + `export R_LIBS_USER` + info echoes, between `# >>> R environment ... >>>` / `# <<< ... <<<` markers) to `module_load.sh`, the project's persistent activation script. The write is one heredoc, guarded by the marker so re-sourcing is idempotent (one R block per request). `module_load.sh` is scaffolded with a self-documenting header and is meant to be `source`d.
+
+`module_load.sh` also exports home-directory containment vars (baked at scaffold time): `XDG_CACHE_HOME`/`XDG_CONFIG_HOME`/`XDG_DATA_HOME`/`XDG_STATE_HOME`, `RENV_PATHS_ROOT`, and `R_ENVIRON_USER`/`R_PROFILE_USER`/`R_HISTFILE` — all pointed into the request dir (and `mkdir -p`'d). This keeps package/tool caches, config, data, history, and the renv cache inside the workspace instead of `$HOME`, and stops R from reading the facilitator's personal `~/.Renviron`/`~/.Rprofile`. It is **best-effort** (redirects tools honoring XDG / `tools::R_user_dir()`); scripts that hardcode `~` or absolute home paths still escape — use a container or throwaway user for hard isolation.
 3. Adds the module's library dir to `.gitignore`.
 4. Installs `languageserver` and `vscDebugger` so the request can be worked on in VSCode.
 5. Prints next-step instructions for reproducing a researcher's R environment (the manual `scp` target and the `r_snapshot.sh` command).

@@ -101,6 +101,11 @@ env_setup/.renv-tools/
 module_load.sh
 .venv
 .conda
+.cache/
+.config/
+.local/
+.renv/
+.Rhistory
 EOF
 
 # Create the activation script that specifies modules and environment.
@@ -115,6 +120,26 @@ cat > "${NEW_DIR}/${SCC_ENV_FILE}" << 'EOF'
 # r_env.sh appends an R environment block during setup. Add any additional
 # `module load` lines or environment settings below as needed.
 #
+EOF
+
+# Contain package/tool caches, config, data, and history inside this request
+# workspace instead of the user's home directory. Baked absolute paths; the
+# runtime ($XDG_*) references stay literal so they resolve when sourced.
+cat >> "${NEW_DIR}/${SCC_ENV_FILE}" << EOF
+
+# Keep caches/config/data/history in this workspace instead of \$HOME
+# (~/.cache, ~/.config, ~/.local/share). Best-effort: this redirects tools that
+# honor XDG / tools::R_user_dir(); scripts that hardcode ~ or an absolute home
+# path can still escape (use a container or throwaway user for hard isolation).
+export XDG_CACHE_HOME="${NEW_DIR}/.cache"
+export XDG_CONFIG_HOME="${NEW_DIR}/.config"
+export XDG_DATA_HOME="${NEW_DIR}/.local/share"
+export XDG_STATE_HOME="${NEW_DIR}/.local/state"
+export RENV_PATHS_ROOT="${NEW_DIR}/.renv"
+export R_ENVIRON_USER="${NEW_DIR}/.Renviron"
+export R_PROFILE_USER="${NEW_DIR}/.Rprofile"
+export R_HISTFILE="${NEW_DIR}/.Rhistory"
+mkdir -p "\$XDG_CACHE_HOME" "\$XDG_CONFIG_HOME" "\$XDG_DATA_HOME" "\$XDG_STATE_HOME" "\$RENV_PATHS_ROOT"
 EOF
 
 # Create a helper bash script for creating
