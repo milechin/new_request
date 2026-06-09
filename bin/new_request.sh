@@ -108,7 +108,7 @@ module_load.sh
 .local/
 .renv/
 .Rhistory
-.claude/
+.claude
 EOF
 
 # Create the activation script that specifies modules and environment.
@@ -161,15 +161,15 @@ else
   printf "WARNING: template dir not found: %s/templates/context\n" "${REPO_DIR}"
 fi
 
-# Make the /init-request slash command available in this workspace by symlinking
-# it from this repo, so updates to the command propagate to every request. The
-# symlink is an absolute path into this repo, so .claude/ is gitignored (an
+# Symlink this repo's whole .claude/ into the workspace, so every Claude asset it
+# holds (commands like /init-request, plus any skills/ or agents/ added later) is
+# available here automatically -- no re-scaffolding when the repo gains new ones.
+# The symlink is an absolute path into this repo, so .claude is gitignored (an
 # absolute-path symlink should not be committed); discovery is unaffected.
-if [ -f "${REPO_DIR}/templates/init-request.md" ]; then
-  mkdir -p .claude/commands
-  ln -sf "${REPO_DIR}/templates/init-request.md" .claude/commands/init-request.md
+if [ -d "${REPO_DIR}/.claude" ]; then
+  ln -s "${REPO_DIR}/.claude" .claude
 else
-  printf "WARNING: template not found: %s/templates/init-request.md\n" "${REPO_DIR}"
+  printf "WARNING: shared Claude dir not found: %s/.claude\n" "${REPO_DIR}"
 fi
 
 
