@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+# Directory containing this script, resolved before any cd, so bundled
+# templates (e.g. templates/r_snapshot.sh) can be located and copied in.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 CLIENT="${1:-}"	# Client identifier (e.g. username)
 TICKET="${2:-}"	# Ticket number
 DIR="${3:-}"	# Location where to create new request directory
@@ -92,14 +96,51 @@ data/
 .gitignore
 output/
 env_setup/r_env.sh
+env_setup/r_snapshot.sh
+env_setup/.renv-tools/
 module_load.sh
 .venv
 .conda
+.cache/
+.config/
+.local/
+.renv/
+.Rhistory
 EOF
 
-# Create am sh script to specify modules and environment.
+# Create the activation script that specifies modules and environment.
+# Source it (do not execute) to activate the request's environment.
 SCC_ENV_FILE=module_load.sh
-echo "#!/bin/bash -l" > "${NEW_DIR}/${SCC_ENV_FILE}"
+cat > "${NEW_DIR}/${SCC_ENV_FILE}" << 'EOF'
+#!/bin/bash -l
+#
+# module_load.sh -- activation script for this request.
+# SOURCE it (do not execute) to load modules and set environment variables:
+#     source module_load.sh
+# r_env.sh appends an R environment block during setup. Add any additional
+# `module load` lines or environment settings below as needed.
+#
+EOF
+
+# Contain package/tool caches, config, data, and history inside this request
+# workspace instead of the user's home directory. Baked absolute paths; the
+# runtime ($XDG_*) references stay literal so they resolve when sourced.
+cat >> "${NEW_DIR}/${SCC_ENV_FILE}" << EOF
+
+# Keep caches/config/data/history in this workspace instead of \$HOME
+# (~/.cache, ~/.config, ~/.local/share). Best-effort: this redirects tools that
+# honor XDG / tools::R_user_dir(); scripts that hardcode ~ or an absolute home
+# path can still escape (use a container or throwaway user for hard isolation).
+export XDG_CACHE_HOME="${NEW_DIR}/.cache"
+export XDG_CONFIG_HOME="${NEW_DIR}/.config"
+export XDG_DATA_HOME="${NEW_DIR}/.local/share"
+export XDG_STATE_HOME="${NEW_DIR}/.local/state"
+export RENV_PATHS_ROOT="${NEW_DIR}/.renv"
+export R_ENVIRON_USER="${NEW_DIR}/.Renviron"
+export R_PROFILE_USER="${NEW_DIR}/.Rprofile"
+export R_HISTFILE="${NEW_DIR}/.Rhistory"
+mkdir -p "\$XDG_CACHE_HOME" "\$XDG_CONFIG_HOME" "\$XDG_DATA_HOME" "\$XDG_STATE_HOME" "\$RENV_PATHS_ROOT"
+EOF
 
 # Create a helper bash script for creating
 # an isolated R environment, which can be sourced
@@ -167,24 +208,47 @@ if [ "\${EXIT_CODE}" -eq 0 ]; then
       echo "\${R_MODULE}" >> "${NEW_DIR}/.gitignore"
   fi
 
-  # Create an activate script for this environment
-  echo "module load \${R_MODULE}" >> "${NEW_DIR}/${SCC_ENV_FILE}"
-  echo "export R_LIBS_USER=\${R_DIR}" >> "${NEW_DIR}/${SCC_ENV_FILE}"
+  # Append the R activation block to module_load.sh (once). The marker guard
+  # keeps re-sourcing this script idempotent. Variables are expanded now (at
+  # r_env.sh run time) so literal values are baked into module_load.sh.
+  if ! grep -Fq "# >>> R environment" "${NEW_DIR}/${SCC_ENV_FILE}"; then
+    cat >> "${NEW_DIR}/${SCC_ENV_FILE}" << BLOCK
 
-  # Outputing information about the environment.
-  echo "echo Activating R Environment" >> "${NEW_DIR}/${SCC_ENV_FILE}"
-  echo "R_LIBS_USER=\${R_LIBS_USER}" >> "${NEW_DIR}/${SCC_ENV_FILE}"
-  echo "module list" >> "${NEW_DIR}/${SCC_ENV_FILE}"
+# >>> R environment (added by r_env.sh during setup) >>>
+module load \${R_MODULE}
+export R_LIBS_USER="\${R_DIR}"
+echo "Activating R environment"
+echo "R_LIBS_USER=\${R_LIBS_USER}"
+module list
+# <<< R environment <<<
+BLOCK
+  fi
 
   # Install R Packages required for VSCode usage
   R -e "install.packages(c('languageserver'), lib='\${R_LIBS_USER}', repos='https://cran.rstudio.com/')"
   R -e "install.packages('vscDebugger', repos = 'https://manuelhentschel.r-universe.dev')"
+
+  # Tell the user how to reproduce a researcher's R environment from here.
+  echo
+  echo "R environment ready.  R_LIBS_USER=\$R_LIBS_USER"
+  echo "To reproduce a researcher's R environment for debugging:"
+  echo "  1. scp their R library into:  \$R_LIBS_USER"
+  echo "  2. Record a manifest:         bash env_setup/r_snapshot.sh"
 
 else
   printf "ERROR: Failed to load module \${R_MODULE}.\n\n"
 fi
 
 EOF
+
+# Copy the renv snapshot helper into the request's env_setup directory.
+# It records the reproduced R library into env_setup/renv.lock (see the script
+# header). It is path-independent (reads $R_LIBS_USER at run time).
+if [ -f "${SCRIPT_DIR}/templates/r_snapshot.sh" ]; then
+  cp "${SCRIPT_DIR}/templates/r_snapshot.sh" env_setup/r_snapshot.sh
+else
+  printf "WARNING: template not found: %s/templates/r_snapshot.sh\n" "${SCRIPT_DIR}"
+fi
 
 
 
