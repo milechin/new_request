@@ -50,6 +50,10 @@ mkdir -p "${RENV_TOOLS_LIB}"
 
 # Record the current project library (R_LIBS_USER) into env_setup/renv.lock.
 # type="all" captures every installed package, not just those referenced by code.
+# force=TRUE bypasses renv's pre-flight validation: a researcher's copied library
+# is typically partial (some transitive dependencies aren't present), which would
+# otherwise abort the snapshot. We only want to *record* what's there, so we write
+# the lockfile regardless of an incomplete dependency closure.
 Rscript -e '
   tools <- Sys.getenv("RENV_TOOLS_LIB")
   proj  <- Sys.getenv("R_LIBS_USER")
@@ -59,7 +63,7 @@ Rscript -e '
   library(renv, lib.loc = tools)
   renv::snapshot(library = proj, type = "all",
                  lockfile = file.path("env_setup", "renv.lock"),
-                 prompt = FALSE)
+                 prompt = FALSE, force = TRUE)
 '
 
 printf "\nWrote env_setup/renv.lock (manifest of %s).\n" "${R_LIBS_USER}"
