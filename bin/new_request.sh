@@ -2,9 +2,11 @@
 
 set -euo pipefail
 
-# Directory containing this script, resolved before any cd, so bundled
-# templates (e.g. templates/r_snapshot.sh) can be located and copied in.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Repo root (the parent of this script's bin/ directory), resolved before any
+# cd, so bundled templates (templates/CLAUDE.md, templates/context/,
+# templates/init-request.md) can be located and copied/symlinked into the new
+# workspace, and so the bin/ scripts can be referenced.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 CLIENT="${1:-}"	# Client identifier (e.g. username)
 TICKET="${2:-}"	# Ticket number
@@ -97,8 +99,6 @@ cat > .gitignore << EOF
 data/
 .gitignore
 output/
-env_setup/r_env.sh
-env_setup/r_snapshot.sh
 env_setup/.renv-tools/
 module_load.sh
 .venv
@@ -145,139 +145,31 @@ export R_HISTFILE="${NEW_DIR}/.Rhistory"
 mkdir -p "\$XDG_CACHE_HOME" "\$XDG_CONFIG_HOME" "\$XDG_DATA_HOME" "\$XDG_STATE_HOME" "\$RENV_PATHS_ROOT"
 EOF
 
-# Create a helper bash script for creating
-# an isolated R environment, which can be sourced
-# when needed.
-cat > env_setup/r_env.sh << EOF
-#!/bin/bash -l
-
-# DESCRIPTION
-# Load an R module and set the \$R_LIBS_USER environment
-# variable so that any R packages installed will
-# be installed in the new request directory.
-
-# Source this r_env.sh file before starting R so
-# only R packages associated with this request environment
-# are available during the R session
-
-# Example command:
-#   source env_setup/r_env.sh R/4.4.0
-#
-
-## ARGUMENTS ##
-R_MODULE=\$1		# Define a specific module to load
-
-## DEFAULTS ##
-R_MODULE_DEFAULT=R	# Define a default module to load if no
-			# module is provided as argument.
-R_DEFAULT_DIR=\${R_MODULE_DEFAULT}/default  # Define a default library location for default R module.
-			# NOTE: 'R/default' tracks whatever the cluster's default R module
-			# was at setup time. If that default later changes, packages cached
-			# here may not load under the new version -- pass an explicit
-			# version (e.g. R/4.4.0) for a longer-lived environment.
-
-# Check if an R Module was specified as an argument.
-
-if [ -z "\$R_MODULE" ]; then
-  # If R Module is not provided as an argument, use
-  # the default values.
-
-  R_MODULE=\${R_MODULE_DEFAULT}
-  R_DIR="${NEW_DIR}/\${R_DEFAULT_DIR}/"
-
-else
-
-  R_DIR="${NEW_DIR}/\${R_MODULE}/"
-
-fi
-
-# Load the R module and set the \$R_LIBS_USER path
-module load \${R_MODULE}
-EXIT_CODE=\$?
-
-if [ "\${EXIT_CODE}" -eq 0 ]; then
-  export R_LIBS_USER="\${R_DIR}"
-
-
-  # Check if the \$R_LIBS_USER directory exits.
-  # If not, create it.
-  if [ ! -d "\${R_LIBS_USER}" ]; then
-      mkdir -p "\${R_LIBS_USER}"
-  fi
-
-  if ! grep -Fxq "\${R_MODULE}" "${NEW_DIR}/.gitignore"
-  then
-      # Add the library directory to gitignore
-      echo "\${R_MODULE}" >> "${NEW_DIR}/.gitignore"
-  fi
-
-  # Append the R activation block to module_load.sh (once). The marker guard
-  # keeps re-sourcing this script idempotent. Variables are expanded now (at
-  # r_env.sh run time) so literal values are baked into module_load.sh.
-  if ! grep -Fq "# >>> R environment" "${NEW_DIR}/${SCC_ENV_FILE}"; then
-    cat >> "${NEW_DIR}/${SCC_ENV_FILE}" << BLOCK
-
-# >>> R environment (added by r_env.sh during setup) >>>
-module load \${R_MODULE}
-export R_LIBS_USER="\${R_DIR}"
-echo "Activating R environment"
-echo "R_LIBS_USER=\${R_LIBS_USER}"
-module list
-# <<< R environment <<<
-BLOCK
-  fi
-
-  # Install R Packages required for VSCode usage
-  R -e "install.packages(c('languageserver'), lib='\${R_LIBS_USER}', repos='https://cran.rstudio.com/')"
-  R -e "install.packages('vscDebugger', repos = 'https://manuelhentschel.r-universe.dev')"
-
-  # Tell the user how to reproduce a researcher's R environment from here.
-  echo
-  echo "R environment ready.  R_LIBS_USER=\$R_LIBS_USER"
-  echo "To reproduce a researcher's R environment for debugging:"
-  echo "  1. scp their R library into:  \$R_LIBS_USER"
-  echo "  2. Record a manifest:         bash env_setup/r_snapshot.sh"
-
-else
-  printf "ERROR: Failed to load module \${R_MODULE}.\n\n"
-fi
-
-EOF
-
-# Copy the renv snapshot helper into the request's env_setup directory.
-# It records the reproduced R library into env_setup/renv.lock (see the script
-# header). It is path-independent (reads $R_LIBS_USER at run time).
-if [ -f "${SCRIPT_DIR}/templates/r_snapshot.sh" ]; then
-  cp "${SCRIPT_DIR}/templates/r_snapshot.sh" env_setup/r_snapshot.sh
-else
-  printf "WARNING: template not found: %s/templates/r_snapshot.sh\n" "${SCRIPT_DIR}"
-fi
-
 # Add a per-request CLAUDE.md describing the workspace structure, so Claude has
 # context when helping troubleshoot. Tracked in git (durable request doc).
-if [ -f "${SCRIPT_DIR}/templates/CLAUDE.md" ]; then
-  cp "${SCRIPT_DIR}/templates/CLAUDE.md" CLAUDE.md
+if [ -f "${REPO_DIR}/templates/CLAUDE.md" ]; then
+  cp "${REPO_DIR}/templates/CLAUDE.md" CLAUDE.md
 else
-  printf "WARNING: template not found: %s/templates/CLAUDE.md\n" "${SCRIPT_DIR}"
+  printf "WARNING: template not found: %s/templates/CLAUDE.md\n" "${REPO_DIR}"
 fi
 
 # Seed the context/ directory with templates for the problem description and
 # relevant links (the facilitator fills these in; /init-request reads them).
-if [ -d "${SCRIPT_DIR}/templates/context" ]; then
-  cp "${SCRIPT_DIR}/templates/context/"*.md context/
+if [ -d "${REPO_DIR}/templates/context" ]; then
+  cp "${REPO_DIR}/templates/context/"*.md context/
 else
-  printf "WARNING: template dir not found: %s/templates/context\n" "${SCRIPT_DIR}"
+  printf "WARNING: template dir not found: %s/templates/context\n" "${REPO_DIR}"
 fi
 
 # Make the /init-request slash command available in this workspace by symlinking
 # it from this repo, so updates to the command propagate to every request. The
 # symlink is an absolute path into this repo, so .claude/ is gitignored (an
 # absolute-path symlink should not be committed); discovery is unaffected.
-if [ -f "${SCRIPT_DIR}/templates/init-request.md" ]; then
+if [ -f "${REPO_DIR}/templates/init-request.md" ]; then
   mkdir -p .claude/commands
-  ln -sf "${SCRIPT_DIR}/templates/init-request.md" .claude/commands/init-request.md
+  ln -sf "${REPO_DIR}/templates/init-request.md" .claude/commands/init-request.md
 else
-  printf "WARNING: template not found: %s/templates/init-request.md\n" "${SCRIPT_DIR}"
+  printf "WARNING: template not found: %s/templates/init-request.md\n" "${REPO_DIR}"
 fi
 
 
@@ -285,3 +177,16 @@ fi
 # Initialize the new request directory as a git repository
 # to track changes as the code is modified.
 git init
+
+# Point the facilitator at the next steps. The R helpers live in this repo's
+# bin/; with that on PATH they can be run from any workspace.
+cat << MSG
+
+Created request workspace: ${NEW_DIR}
+
+To set up an R environment for it (with ${REPO_DIR}/bin on your PATH):
+  r_env.sh R/4.5.2 "${NEW_DIR}"        # one-time setup
+  source "${NEW_DIR}/module_load.sh"   # activate this + future sessions
+  # scp the researcher's R library into the R_LIBS_USER shown above
+  r_snapshot.sh "${NEW_DIR}"           # record env_setup/renv.lock
+MSG

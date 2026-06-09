@@ -4,15 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`new_request.sh` is a single bash script used by an HPC facilitator (Boston University SCC) to scaffold a directory hierarchy for each new researcher support request. There is no build system, no dependencies to install, and no application — the entire project is this one script plus its generated output.
+`bin/new_request.sh` is a bash script used by an HPC facilitator (Boston University SCC) to scaffold a directory hierarchy for each new researcher support request. There is no build system, no dependencies to install, and no application — the project is a handful of bash scripts in `bin/` (`new_request.sh`, `r_env.sh`, `r_snapshot.sh`), the `templates/` they copy in, and their generated output. Put `bin/` on your `PATH` to run them from anywhere.
 
 ## Running
 
 ```console
-bash new_request.sh CLIENT TICKET [DIR]
+new_request.sh CLIENT TICKET [DIR]      # bin/ on PATH; or: bash bin/new_request.sh ...
 ```
 
-Creates `${DIR}/${CLIENT}/${TICKET}/` (DIR defaults to `pwd`), populates it with `data/`, `env_setup/`, `scripts/`, `output/`, `context/`, a `.gitignore`, an empty `module_load.sh`, an `env_setup/r_env.sh` helper, copies of `env_setup/r_snapshot.sh` + a per-workspace `CLAUDE.md` + `context/` templates (all from `templates/`), a symlinked `.claude/commands/init-request.md` (the `/init-request` slash command, pointing back into this repo), and runs `git init` inside it. The script exits with status 1 (and prints `Help`) if CLIENT or TICKET is missing, contains `/` or `..`, or if the target directory already exists; `-h`/`--help` prints help and exits 0.
+Creates `${DIR}/${CLIENT}/${TICKET}/` (DIR defaults to `pwd`), populates it with `data/`, `env_setup/`, `scripts/`, `output/`, `context/`, a `.gitignore`, a `module_load.sh` (self-documenting header + home-isolation block), a per-workspace `CLAUDE.md` + `context/` templates (copied from `templates/`), a symlinked `.claude/commands/init-request.md` (the `/init-request` slash command, pointing back into this repo), and runs `git init` inside it. The R helpers are **not** copied in — they live centrally in this repo's `bin/` (`r_env.sh`, `r_snapshot.sh`) and are run against a workspace (see below). The script exits with status 1 (and prints `Help`) if CLIENT or TICKET is missing, contains `/` or `..`, or if the target directory already exists; `-h`/`--help` prints help and exits 0.
 
 ## Per-request context (CLAUDE.md, context/, /init-request)
 
@@ -26,43 +26,43 @@ Each generated workspace carries its own troubleshooting context, from `template
 There is no test framework. The `test/` directory is committed sample output from a real run (`test/inc1234/`) — it is a generated artifact, not a test suite. To verify changes, run the script into a throwaway directory and inspect the result:
 
 ```console
-bash new_request.sh testclient testticket /tmp
+bash bin/new_request.sh testclient testticket /tmp
 ```
 
-## Architecture: generated-script escaping
+## Architecture: central bin/ scripts vs. generated files
 
-The single most error-prone aspect of this code is that `new_request.sh` *generates* another script (`env_setup/r_env.sh`) via a `cat > ... << EOF` heredoc. Inside that heredoc there are two classes of variables, and the distinction is load-bearing:
+The R helpers are **static scripts in `bin/`** (`bin/r_env.sh`, `bin/r_snapshot.sh`), maintained once and run against any workspace — not generated or copied per request. Put `bin/` on your `PATH` to call them. Both are **executed** (not sourced) and take an optional workspace path argument (default `$PWD`).
 
-- **Unescaped** (e.g. `${NEW_DIR}`, `${SCC_ENV_FILE}`) — expanded *now*, at generation time, so the generated script contains absolute paths baked in. See how `test/inc1234/env_setup/r_env.sh` has the full `/projectnb/...` path hardcoded.
-- **Escaped with `\$`** (e.g. `\$R_MODULE`, `\$R_LIBS_USER`, `\$EXIT_CODE`) — written literally into `r_env.sh` and only expanded when the *generated* script runs.
+`new_request.sh` still *generates* two per-workspace files via `cat > ... << EOF` heredocs: `.gitignore` and `module_load.sh`. The `module_load.sh` home-isolation heredoc is the one place escaping is load-bearing:
+- **Unescaped** (e.g. `${NEW_DIR}`) — expanded at generation time, baking the workspace's absolute paths in.
+- **Escaped `\$`** (e.g. `\$XDG_CACHE_HOME` in the `mkdir` line) — written literally so they expand when the user *sources* `module_load.sh`.
 
-When editing the heredoc, always decide whether a variable should resolve at generation time or run time, and escape accordingly. A common bug is forgetting the backslash, which silently bakes in an empty/wrong value — even in comments. The source-time instruction echoes (e.g. `echo "... \$R_LIBS_USER"`) are escaped for exactly this reason, so they expand when the user *sources* `r_env.sh`, not when it is generated.
+When the work doesn't need request-specific paths baked in, prefer a **static script in `bin/`** (resolve the workspace at runtime) over heredoc generation — that's exactly why `r_env.sh` was moved out of the heredoc.
 
-By contrast, `templates/r_snapshot.sh` is a **static, path-independent** file: it is copied verbatim into each request's `env_setup/` and reads `$R_LIBS_USER` at run time, so it needs no escaping discipline. Prefer this pattern (static template + copy) over heredoc generation when a helper does not need request-specific paths baked in.
+## What `bin/r_env.sh` does (one-time R setup)
 
-## What the generated `r_env.sh` does
+`r_env.sh [R_MODULE] [WORKSPACE]` is **run** (not sourced); it sets up an isolated R environment for the workspace (default `$PWD`) and does not alter your shell:
+1. Loads the given LMOD R module (default `R`) in its own process; computes a per-module library dir (`R/<module>/`, or `R/default/`) inside the workspace and `mkdir -p`s it.
+2. Installs `languageserver` and `vscDebugger` into that library (`lib=`), for VSCode.
+3. Adds the module's library dir to the workspace `.gitignore`.
+4. Appends a self-contained R activation block (`module load` + `export R_LIBS_USER` + info echoes, between `# >>> R environment >>>` / `# <<< <<<` markers) to `module_load.sh`, guarded by the marker so re-running is idempotent (one R block per request).
 
-The generated helper is meant to be `source`d (`source env_setup/r_env.sh R/4.4.0`), not executed. It:
-1. Loads the given LMOD R module (default `R`), and on success sets `R_LIBS_USER` to a per-module library dir inside the request folder, creating it if needed.
-2. Appends a self-contained R activation block (`module load` + `export R_LIBS_USER` + info echoes, between `# >>> R environment ... >>>` / `# <<< ... <<<` markers) to `module_load.sh`, the project's persistent activation script. The write is one heredoc, guarded by the marker so re-sourcing is idempotent (one R block per request). `module_load.sh` is scaffolded with a self-documenting header and is meant to be `source`d.
+Activation is separate: **`source module_load.sh`** loads the module, sets `R_LIBS_USER`, and exports the home-isolation vars that `new_request.sh` baked in (`XDG_CACHE_HOME`/`XDG_CONFIG_HOME`/`XDG_DATA_HOME`/`XDG_STATE_HOME`, `RENV_PATHS_ROOT`, `R_ENVIRON_USER`/`R_PROFILE_USER`/`R_HISTFILE`). That keeps package/tool caches, config, data, history, and the renv cache inside the workspace instead of `$HOME`, and stops R reading the facilitator's personal `~/.Renviron`/`~/.Rprofile`. It is **best-effort** (redirects tools honoring XDG / `tools::R_user_dir()`); scripts that hardcode `~` or absolute home paths still escape — use a container or throwaway user for hard isolation.
 
-`module_load.sh` also exports home-directory containment vars (baked at scaffold time): `XDG_CACHE_HOME`/`XDG_CONFIG_HOME`/`XDG_DATA_HOME`/`XDG_STATE_HOME`, `RENV_PATHS_ROOT`, and `R_ENVIRON_USER`/`R_PROFILE_USER`/`R_HISTFILE` — all pointed into the request dir (and `mkdir -p`'d). This keeps package/tool caches, config, data, history, and the renv cache inside the workspace instead of `$HOME`, and stops R from reading the facilitator's personal `~/.Renviron`/`~/.Rprofile`. It is **best-effort** (redirects tools honoring XDG / `tools::R_user_dir()`); scripts that hardcode `~` or absolute home paths still escape — use a container or throwaway user for hard isolation.
-3. Adds the module's library dir to `.gitignore`.
-4. Installs `languageserver` and `vscDebugger` so the request can be worked on in VSCode.
-5. Prints next-step instructions for reproducing a researcher's R environment (the manual `scp` target and the `r_snapshot.sh` command).
+These depend on the LMOD `module` command being available (BU SCC environment).
 
-This depends on the LMOD `module` command being available (BU SCC environment).
+## Reproducing a researcher's R environment (`bin/r_snapshot.sh` + renv)
 
-## Reproducing a researcher's R environment (`r_snapshot.sh` + renv)
+The flow has four steps; **the copy (step 3) is manual and the rest use the `bin/` scripts**:
 
-The framework supports reproducing a researcher's R library for debugging and recording a manifest of it. The flow is three steps and **only step 3 is scripted**:
-
-1. `source module_load.sh` — activate the module + `R_LIBS_USER` (this activation script is created by `r_env.sh` during the one-time setup; `r_env.sh` itself is only re-run to rebuild the environment).
-2. **The facilitator manually `scp`s** the researcher's library into `R_LIBS_USER`. This is intentionally *not* automated — it requires logging in as the researcher to read their home directory. **No script (or Claude) should attempt this copy.**
-3. `bash env_setup/r_snapshot.sh` — runs `renv::snapshot(library = R_LIBS_USER, type = "all")` to write `env_setup/renv.lock`.
+1. `r_env.sh R/X.Y <workspace>` — one-time setup (above).
+2. `source <workspace>/module_load.sh` — activate the module + `R_LIBS_USER` (now and every future session).
+3. **The facilitator manually `scp`s** the researcher's library into `R_LIBS_USER`. Intentionally *not* automated — it requires logging in as the researcher. **No script (or Claude) should attempt this copy.**
+4. `r_snapshot.sh <workspace>` — runs `renv::snapshot(library = R_LIBS_USER, type = "all", force = TRUE)` to write `env_setup/renv.lock`.
 
 Key design points:
 - renv is adopted **facilitator-side only** — `renv::snapshot()` records whatever is in the library, so the researcher need never have used renv.
-- renv is used to **document, not repopulate**: the goal is debugging their *exact* state, so packages are never reinstalled (which could drift versions and mask the bug).
+- renv is used to **document, not repopulate**: the goal is debugging their *exact* state, so packages are never reinstalled.
+- `force = TRUE` bypasses renv's pre-flight validation, since a copied library is typically a partial dependency closure.
 - renv is installed into a **separate tools library** (`env_setup/.renv-tools/`, gitignored) so it does not appear in the manifest.
-- `env_setup/renv.lock` **is tracked** in git (the record of what was reproduced); the reproduced library under `R/<version>/`, `env_setup/r_snapshot.sh`, and `.renv-tools/` are gitignored.
+- `env_setup/renv.lock` **is tracked** (the record of what was reproduced); the reproduced library under `R/<version>/` and `.renv-tools/` are gitignored.

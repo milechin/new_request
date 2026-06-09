@@ -7,16 +7,17 @@
 # not install or change any of the researcher's packages.
 #
 # PREREQUISITES (in order):
-#   1. Source module_load.sh to load the R module and set R_LIBS_USER:
-#        source module_load.sh
-#      (module_load.sh is the activation script created by env_setup/r_env.sh
-#       during the one-time R environment setup.)
+#   1. Activate the workspace so the R module is loaded and R_LIBS_USER is set:
+#        source <workspace>/module_load.sh
+#      (module_load.sh is created during the one-time setup by r_env.sh.)
 #   2. scp the researcher's R library into $R_LIBS_USER. This is done manually
 #      by the facilitator (it requires logging in as the researcher) and is NOT
 #      automated by this script.
 #
-# Then run this script from the request directory:
-#   bash env_setup/r_snapshot.sh
+# USAGE (run, not sourced; with this repo's bin/ on your PATH):
+#   r_snapshot.sh [WORKSPACE]
+#     WORKSPACE  Request directory whose env_setup/renv.lock to write
+#                (default: current directory).
 #
 # NOTES
 #   - Same-cluster / same-R-module only: the copied packages are compiled for a
@@ -28,6 +29,14 @@
 #     R/<version>/ and .renv-tools are gitignored.
 
 set -euo pipefail
+
+# Resolve the target workspace (default: current directory) and work from there,
+# so env_setup/renv.lock and env_setup/.renv-tools land in the right place.
+WORKSPACE="${1:-$PWD}"
+if ! cd "$WORKSPACE" 2>/dev/null; then
+  printf "ERROR: workspace directory does not exist: %s\n" "$WORKSPACE"
+  exit 1
+fi
 
 # 1. The R environment must be active (step 1 above).
 if [ -z "${R_LIBS_USER:-}" ]; then

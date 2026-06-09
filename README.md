@@ -5,7 +5,7 @@ As an HPC facilitator I assist researchers with troubleshooting their code or op
 
 ## Requirements
 
-Git needs to be installed. For helper scripts generated, they use LMOD module load commands.
+Git needs to be installed. The R helper scripts in `bin/` use LMOD `module` commands (BU SCC); add `bin/` to your `PATH` to use them (see [R environment helpers](#r-environment-helpers-bin)).
 
 ## Usage
 
@@ -17,10 +17,10 @@ Arguments:
     DIR        Location to create directory hierarchy (if blank defaults to pwd).
 ```
 
-The bash script will create a new request directory using the CLIENT and TICKET arguments as unique identifiers.  The directory will be initialized as a git repository.  For example, running the example command below will create a directory "bob/123456" in the current working directory:
+`new_request.sh` lives in this repo's `bin/` directory (alongside the R helpers); with `bin/` on your `PATH` you can run it from anywhere. It creates a new request directory using the CLIENT and TICKET arguments as unique identifiers, and initializes it as a git repository.  For example, the command below creates a directory "bob/123456" in the current working directory:
 
 ```console
-bash new_request.sh bob 123456
+new_request.sh bob 123456
 Initialized empty Git repository in /projectnb/dvm-rcs/client/bob/123456/.git/
 ```
 
@@ -28,36 +28,39 @@ The script will also generate a `.gitignore` file with the following contents:
 
 https://github.com/milechin/new_request/blob/a57c0438959f6d932095db86f053476db39b7a09/new_request.sh#L74-L76
 
-Additionally, helper bash scripts will be generated in the `env_setup` directory for creating R environments.  
+## R environment helpers (`bin/`)
 
- - `r_env.sh` - This bash scripts will load the specified module, create a directory to install packages, install packages that are required for VSCode, and generate append to the 'module_load.sh' script for setting up the environment (Load the appropriate module and set `R_LIBS_USER` environment variable.).  On success it also prints the next steps for reproducing a researcher's R environment (see below).
+The R helper scripts live in this repo's **`bin/`** directory and are run against any request workspace (they are no longer copied into each workspace). Add `bin/` to your `PATH` once so they're available everywhere — e.g. in `~/.bashrc`:
 
- Example Usage
+```console
+export PATH="/path/to/new_request/bin:$PATH"
+```
 
- ```console
-    source r_env.sh R/4.4.0
- ```
-
- - `r_snapshot.sh` - Records the current isolated R library (`$R_LIBS_USER`) into `env_setup/renv.lock`, a manifest of exactly what was reproduced for the request. It uses [renv](https://rstudio.github.io/renv/) only to *document* the library — it does not install or change any packages.
+ - `r_env.sh [R_MODULE] [WORKSPACE]` — one-time setup: loads the R module, creates a per-module package library inside the workspace, installs the packages VSCode needs, and records the R environment in the workspace's `module_load.sh` and `.gitignore`. **Run** it (do not source); `WORKSPACE` defaults to the current directory. Activate afterwards with `source <workspace>/module_load.sh`.
+ - `r_snapshot.sh [WORKSPACE]` — records the workspace's isolated R library into `env_setup/renv.lock`, a manifest of exactly what was reproduced. Uses [renv](https://rstudio.github.io/renv/) only to *document* the library — it does not install or change packages. `WORKSPACE` defaults to the current directory.
 
 ## Reproducing a researcher's R environment
 
-When troubleshooting, you can reproduce a researcher's R environment inside the request's isolated library and capture a manifest of it. The flow is three steps; **step 2 is manual**:
+When troubleshooting, reproduce the researcher's R environment inside the request's isolated library and capture a manifest of it. With `bin/` on your `PATH`, the flow is four steps; **step 3 (the copy) is manual**:
 
-1. **Activate the environment.** Loads the R module and sets `R_LIBS_USER` to the per-request library. Use the `module_load.sh` activation script (created by `r_env.sh` during the one-time setup):
+1. **Set up the R environment** (one-time):
 
    ```console
-   source module_load.sh
+   r_env.sh R/4.5.2 /path/to/request
    ```
 
-   (If the R environment has not been set up yet for this request, run the one-time setup first: `source env_setup/r_env.sh R/4.5.2`.)
-
-2. **Copy the researcher's R library into `$R_LIBS_USER`** (done manually with `scp`, since it requires logging in as the researcher to read their home directory). This is a byte-for-byte copy and is only valid on the same cluster / same R version, where the compiled packages match.
-
-3. **Record the manifest.** Writes `env_setup/renv.lock` describing every reproduced package (version + source) and the R version:
+2. **Activate it** (now and in future sessions):
 
    ```console
-   bash env_setup/r_snapshot.sh
+   source /path/to/request/module_load.sh
+   ```
+
+3. **Copy the researcher's R library into `$R_LIBS_USER`** — done manually with `scp`, since it requires logging in as the researcher to read their home directory. This is a byte-for-byte copy, valid only on the same cluster / same R version, where the compiled packages match.
+
+4. **Record the manifest.** Writes `env_setup/renv.lock` describing every reproduced package (version + source) and the R version:
+
+   ```console
+   r_snapshot.sh /path/to/request
    ```
 
 `renv.lock` is committed to git (it is small and is the record of what was reproduced). The reproduced library under `R/<version>/` is **not** tracked. You do **not** need the researcher to have used renv — `renv.lock` is generated from whatever packages you copied in.
@@ -68,7 +71,7 @@ When troubleshooting, you can reproduce a researcher's R environment inside the 
 Below is the directory structure the bash script will create:
 
 - *data* - Directory to store relevant data used by the client's scripts.
-- *env_setup* - Directory to store scripts files associated with setting up the enviroment for the request at hand.
+- *env_setup* - Holds `renv.lock` (the reproduced-package manifest, tracked) and `.renv-tools/` (gitignored). The R helper scripts live centrally in this repo's `bin/`, not here.
 - *scripts* - Directory to store the client's scripts.
 - *output* - Directory to store the output data generated by the client's scripts.
 - *context* - Directory for request context: `problem.md` (describe the issue) and `links.md` (relevant URLs/tickets) for you to fill in; `/init-request` also writes `SUMMARY.md` here.
