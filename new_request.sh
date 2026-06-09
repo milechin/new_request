@@ -86,6 +86,8 @@ mkdir -p env_setup	# Directory to store scripts files associated
 mkdir -p scripts	# Directory to store the client's scripts
 mkdir -p output		# Directory to store any outputs generated
 			# by the client's scripts.
+mkdir -p context	# Directory for the problem description and
+			# relevant links Claude should use as context.
 
 
 
@@ -106,6 +108,7 @@ module_load.sh
 .local/
 .renv/
 .Rhistory
+.claude/
 EOF
 
 # Create the activation script that specifies modules and environment.
@@ -248,6 +251,33 @@ if [ -f "${SCRIPT_DIR}/templates/r_snapshot.sh" ]; then
   cp "${SCRIPT_DIR}/templates/r_snapshot.sh" env_setup/r_snapshot.sh
 else
   printf "WARNING: template not found: %s/templates/r_snapshot.sh\n" "${SCRIPT_DIR}"
+fi
+
+# Add a per-request CLAUDE.md describing the workspace structure, so Claude has
+# context when helping troubleshoot. Tracked in git (durable request doc).
+if [ -f "${SCRIPT_DIR}/templates/CLAUDE.md" ]; then
+  cp "${SCRIPT_DIR}/templates/CLAUDE.md" CLAUDE.md
+else
+  printf "WARNING: template not found: %s/templates/CLAUDE.md\n" "${SCRIPT_DIR}"
+fi
+
+# Seed the context/ directory with templates for the problem description and
+# relevant links (the facilitator fills these in; /init-request reads them).
+if [ -d "${SCRIPT_DIR}/templates/context" ]; then
+  cp "${SCRIPT_DIR}/templates/context/"*.md context/
+else
+  printf "WARNING: template dir not found: %s/templates/context\n" "${SCRIPT_DIR}"
+fi
+
+# Make the /init-request slash command available in this workspace by symlinking
+# it from this repo, so updates to the command propagate to every request. The
+# symlink is an absolute path into this repo, so .claude/ is gitignored (an
+# absolute-path symlink should not be committed); discovery is unaffected.
+if [ -f "${SCRIPT_DIR}/templates/init-request.md" ]; then
+  mkdir -p .claude/commands
+  ln -sf "${SCRIPT_DIR}/templates/init-request.md" .claude/commands/init-request.md
+else
+  printf "WARNING: template not found: %s/templates/init-request.md\n" "${SCRIPT_DIR}"
 fi
 
 
