@@ -85,4 +85,4 @@ Each request workspace is set up to give [Claude Code](https://claude.com/claude
 1. Describe the issue in `context/problem.md` and add any relevant URLs/tickets to `context/links.md`.
 2. Run the **`/init-request`** slash command in the workspace. It reads `CLAUDE.md` (structure), `context/`, `scripts/`, and the R environment, then writes a `context/SUMMARY.md` overview and reports what it found.
 
-The `/init-request` command is symlinked into each workspace from this repo (`templates/init-request.md`), so editing it here updates the command everywhere. (`.claude/` in the workspace is gitignored because the symlink is an absolute path back into this repo.)
+Each workspace's `.claude/` is a **symlink to this repo's own `.claude/`**, so every Claude command/skill lives in one place: add or edit one here (e.g. `.claude/commands/`, `.claude/skills/`) and every workspace — existing and new — picks it up, no re-scaffolding. (The workspace `.claude` symlink is gitignored, since it's an absolute path back into this repo.)
