@@ -12,7 +12,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 bash new_request.sh CLIENT TICKET [DIR]
 ```
 
-Creates `${DIR}/${CLIENT}/${TICKET}/` (DIR defaults to `pwd`), populates it with `data/`, `env_setup/`, `scripts/`, `output/`, a `.gitignore`, an empty `module_load.sh`, an `env_setup/r_env.sh` helper, a copy of `env_setup/r_snapshot.sh` (from `templates/`), and runs `git init` inside it. The script exits with status 1 (and prints `Help`) if CLIENT or TICKET is missing, contains `/` or `..`, or if the target directory already exists; `-h`/`--help` prints help and exits 0.
+Creates `${DIR}/${CLIENT}/${TICKET}/` (DIR defaults to `pwd`), populates it with `data/`, `env_setup/`, `scripts/`, `output/`, `context/`, a `.gitignore`, an empty `module_load.sh`, an `env_setup/r_env.sh` helper, copies of `env_setup/r_snapshot.sh` + a per-workspace `CLAUDE.md` + `context/` templates (all from `templates/`), a symlinked `.claude/commands/init-request.md` (the `/init-request` slash command, pointing back into this repo), and runs `git init` inside it. The script exits with status 1 (and prints `Help`) if CLIENT or TICKET is missing, contains `/` or `..`, or if the target directory already exists; `-h`/`--help` prints help and exits 0.
+
+## Per-request context (CLAUDE.md, context/, /init-request)
+
+Each generated workspace carries its own troubleshooting context, from `templates/`:
+- **`CLAUDE.md`** (tracked) — a per-workspace map of the directory structure + working conventions, so Claude knows the layout when helping debug. Static copy of `templates/CLAUDE.md`.
+- **`context/`** (tracked) — `problem.md` (the issue) and `links.md` (references) for the facilitator to fill in; `/init-request` also writes `context/SUMMARY.md` here.
+- **`.claude/commands/init-request.md`** — a **symlink** to `templates/init-request.md` in this repo (so editing the command updates every workspace). The `/init-request` command reads `CLAUDE.md` + `context/` + `scripts/` + the environment and writes `context/SUMMARY.md`. `.claude/` is gitignored in the workspace because the symlink is an absolute path into this repo (don't commit it); Claude Code still discovers the command.
 
 ## Testing
 
