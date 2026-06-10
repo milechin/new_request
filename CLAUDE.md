@@ -22,7 +22,7 @@ Creates `${DIR}/${CLIENT}/${TICKET}/` (DIR defaults to `pwd`), populates it with
 
 Each generated workspace carries its own troubleshooting context:
 - **`CLAUDE.md`** (tracked) — per-workspace map of the layout + conventions. Static copy of `templates/CLAUDE.md`.
-- **`context/`** (tracked) — `problem.md` + `links.md` for the facilitator; `/init-request` also writes `context/SUMMARY.md`.
+- **`context/`** (tracked) — `problem.md` + `links.md` for the facilitator; `/init-request` also writes `context/SUMMARY.md`. `context/logs/` holds researcher-uploaded build/job logs (gitignored via `context/logs/*` + a tracked `.gitkeep`); `/init-request` samples head+tail and triages build logs rather than reading them whole.
 - **`.claude/`** — a **symlink** to this repo's own `.claude/`, so every command/skill/agent is available in every workspace and adding a new one needs no re-scaffolding. Organize by language namespace (commands in `commands/<lang>/`, agents/skills `<lang>-` prefixed; truly general ones unprefixed). The workspace `.claude` symlink is gitignored (absolute path into this repo; the `.gitignore` entry is `.claude`, no trailing slash, so it matches the symlink); Claude Code still discovers everything through it.
 
 ## Testing
