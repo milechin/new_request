@@ -118,6 +118,8 @@ module_load.sh
 .renv/
 .Rhistory
 .claude
+context/logs/*
+!context/logs/.gitkeep
 EOF
 
 # Create the activation script that specifies modules and environment.
@@ -187,7 +189,8 @@ fi
 # Seed the context/ directory with templates for the problem description and
 # relevant links (the facilitator fills these in; /init-request reads them).
 if [ -d "${REPO_DIR}/templates/context" ]; then
-  cp "${REPO_DIR}/templates/context/"*.md context/
+  # Recursive copy so context/logs/ (with its .gitkeep) comes along too.
+  cp -r "${REPO_DIR}/templates/context/." context/
 else
   printf "WARNING: template dir not found: %s/templates/context\n" "${REPO_DIR}"
 fi
