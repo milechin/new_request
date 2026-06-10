@@ -49,15 +49,15 @@ When work doesn't need request-specific paths baked in, prefer a **static script
 1. Loads the LMOD R module (default `R`) in its own process; computes a per-module library dir (`R/<module>/`, or `R/default/`) and `mkdir -p`s it.
 2. Installs `languageserver` and `vscDebugger` into that library (`lib=`).
 3. Adds the module's library dir to the workspace `.gitignore`.
-4. Appends a guarded R activation block (`module load` + `export R_LIBS_USER` + info echoes, between `# >>> R environment >>>` / `# <<< <<<` markers) to `module_load.sh` (idempotent).
+4. **Writes** the R activation block (`module load` + `export R_LIBS_USER` + info echoes, between `# >>> R environment >>>` / `# <<< <<<` markers) into `module_load.sh` — *replacing* any existing block, so re-running with a different `R/X.Y` **switches versions** (idempotent for the same version). It also ensures the **R toolset (`bin/r`) is on PATH** (so `r_install.sh`/`r_snapshot.sh` work even without `--lang r`).
 
-Activation is separate: **`source module_load.sh`** loads the module, sets `R_LIBS_USER`, puts the request's `bin/<lang>` toolset(s) on `PATH` (from `--lang`), and exports the home-isolation vars `new_request.sh` baked in (`XDG_*`, `RENV_PATHS_ROOT`, `R_ENVIRON_USER`/`R_PROFILE_USER`/`R_HISTFILE`) — keeping caches/config/data/history and the renv cache in the workspace, not `$HOME`. Best-effort (honors XDG / `tools::R_user_dir()`); scripts hardcoding `~`/absolute home paths still escape. Depends on the LMOD `module` command (BU SCC).
+Activation is separate: **`source module_load.sh`** loads the module, sets `R_LIBS_USER`, puts the common `bin/` **and** the request's language toolset(s) on `PATH`, and exports the home-isolation vars `new_request.sh` baked in (`XDG_*`, `RENV_PATHS_ROOT`, `R_ENVIRON_USER`/`R_PROFILE_USER`/`R_HISTFILE`) — keeping caches/config/data/history and the renv cache in the workspace, not `$HOME`. Best-effort (honors XDG / `tools::R_user_dir()`); scripts hardcoding `~`/absolute home paths still escape. Depends on the LMOD `module` command (BU SCC).
 
 ## Reproducing a researcher's R environment (`bin/r/r_snapshot.sh` + renv)
 
 Four steps; **the copy (step 3) is manual**:
-1. `r_env.sh R/X.Y <workspace>` — one-time setup.
-2. `source <workspace>/module_load.sh` — activate.
+1. `<repo>/bin/r/r_env.sh R/X.Y <workspace>` — one-time setup (run **by path**; needs nothing on PATH). Re-run with a different `R/X.Y` to switch versions.
+2. `source <workspace>/module_load.sh` — activate (loads R; puts common `bin/` + the R toolset on PATH).
 3. **The facilitator manually `scp`s** the researcher's library into `R_LIBS_USER`. Intentionally *not* automated — it requires logging in as the researcher. **No script (or Claude) should attempt this copy.**
 4. `r_snapshot.sh <workspace>` — runs `renv::snapshot(library = R_LIBS_USER, type = "all", force = TRUE)` to write `env_setup/renv.lock`.
 

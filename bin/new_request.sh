@@ -154,6 +154,10 @@ export R_ENVIRON_USER="${NEW_DIR}/.Renviron"
 export R_PROFILE_USER="${NEW_DIR}/.Rprofile"
 export R_HISTFILE="${NEW_DIR}/.Rhistory"
 mkdir -p "\$XDG_CACHE_HOME" "\$XDG_CONFIG_HOME" "\$XDG_DATA_HOME" "\$XDG_STATE_HOME" "\$RENV_PATHS_ROOT"
+
+# Put this repo's common bin/ on PATH so its always-on tools (new_request.sh,
+# triage_build_log.sh) are available once this workspace is activated.
+export PATH="${REPO_DIR}/bin:\$PATH"
 EOF
 
 # Activate the selected language toolset(s): when module_load.sh is sourced, put
@@ -162,7 +166,7 @@ EOF
 if [ -n "${LANGS}" ]; then
   IFS=',' read -ra _LANGS <<< "${LANGS}"
   for _lang in "${_LANGS[@]}"; do
-    _lang="$(echo "${_lang}" | tr -d '[:space:]')"
+    _lang="$(echo "${_lang}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
     [ -z "${_lang}" ] && continue
     if [ -d "${REPO_DIR}/bin/${_lang}" ]; then
       {
@@ -219,11 +223,9 @@ cat << MSG
 Created request workspace: ${NEW_DIR}
 Activated language toolset(s): ${LANGS:-none (add with --lang, or edit module_load.sh)}
 
-Next steps:
-  source "${NEW_DIR}/module_load.sh"     # activate env + put bin/<lang> on PATH
-  # --- for an R request ---
-  r_env.sh R/4.5.2 "${NEW_DIR}"          # one-time R setup
-  source "${NEW_DIR}/module_load.sh"     # re-source to load the R env it recorded
+Next steps (for an R request):
+  ${REPO_DIR}/bin/r/r_env.sh R/4.5.2 "${NEW_DIR}"   # one-time R setup (run by path; no source needed)
+  source "${NEW_DIR}/module_load.sh"                # activate: R env + tools on PATH (once, and every future session)
   # scp the researcher's R library into the R_LIBS_USER shown on activation
-  r_snapshot.sh "${NEW_DIR}"             # record env_setup/renv.lock
+  r_snapshot.sh "${NEW_DIR}"                        # record env_setup/renv.lock
 MSG

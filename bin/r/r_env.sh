@@ -63,10 +63,11 @@ if ! grep -Fxq "$R_MODULE" "$WORKSPACE/.gitignore" 2>/dev/null; then
   echo "$R_MODULE" >> "$WORKSPACE/.gitignore"
 fi
 
-# Append the R activation block to module_load.sh (once). The marker guard keeps
-# re-running idempotent. Absolute paths are baked in so sourcing works anywhere.
-if ! grep -Fq "# >>> R environment" "$WORKSPACE/module_load.sh"; then
-  cat >> "$WORKSPACE/module_load.sh" << BLOCK
+# (Re)write the R activation block in module_load.sh: delete any existing block,
+# then append the current one -- so re-running with a different R version switches
+# cleanly (and is idempotent for the same version). Absolute paths are baked in.
+sed -i '/# >>> R environment/,/# <<< R environment <<</d' "$WORKSPACE/module_load.sh"
+cat >> "$WORKSPACE/module_load.sh" << BLOCK
 
 # >>> R environment (added by r_env.sh during setup) >>>
 module load $R_MODULE
@@ -75,6 +76,18 @@ echo "Activating R environment"
 echo "R_LIBS_USER=$R_DIR"
 module list
 # <<< R environment <<<
+BLOCK
+
+# Ensure the R toolset (bin/r) is on PATH when this workspace is activated, so
+# r_install.sh / r_snapshot.sh are available even if the request wasn't created
+# with --lang r. Guarded by the toolset marker (shared with new_request.sh --lang).
+BINDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if ! grep -Fq "# >>> r toolset" "$WORKSPACE/module_load.sh"; then
+  cat >> "$WORKSPACE/module_load.sh" << BLOCK
+
+# >>> r toolset (added by r_env.sh) >>>
+export PATH="$BINDIR/r:\$PATH"
+# <<< r toolset <<<
 BLOCK
 fi
 
