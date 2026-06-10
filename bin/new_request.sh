@@ -8,31 +8,40 @@ set -euo pipefail
 # workspace, and so the bin/ scripts can be referenced.
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-CLIENT="${1:-}"	# Client identifier (e.g. username)
-TICKET="${2:-}"	# Ticket number
-DIR="${3:-}"	# Location where to create new request directory
-
-
 # Help function with instructions on how to use this script.
 Help()
 {
    # Display Help
    echo "HELP"
-   echo "Description: Creates a directory hierarchy for a "
-   echo " new request"
+   echo "Description: Creates a directory hierarchy for a new request."
    echo
-   echo "Syntax: $(basename $0) CLIENT TICKET DIR"
+   echo "Syntax: $(basename "$0") CLIENT TICKET [DIR] [--lang LANGS]"
    echo "Arguments:"
    echo "    CLIENT     A client identifier (e.g. username)."
    echo "    TICKET     Request identifier (e.g. ticket number)."
-   echo "    DIR        Location to create directory hierarchy (if blank defaults to pwd)."
+   echo "    DIR        Location to create directory hierarchy (default: pwd)."
+   echo "    --lang     Comma-separated language toolset(s) to activate, e.g."
+   echo "               --lang r   or   --lang r,python . Puts bin/<lang> on"
+   echo "               PATH when the workspace's module_load.sh is sourced."
    echo
 }
 
-# Show help and exit if requested.
-case "${1:-}" in
-  -h|--help) Help; exit 0 ;;
-esac
+# Parse arguments: positional CLIENT TICKET [DIR], optional --lang, and -h/--help.
+LANGS=""
+POSITIONAL=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help) Help; exit 0 ;;
+    --lang)    LANGS="${2:-}"; shift 2 ;;
+    --lang=*)  LANGS="${1#--lang=}"; shift ;;
+    *)         POSITIONAL+=("$1"); shift ;;
+  esac
+done
+if [ ${#POSITIONAL[@]} -gt 0 ]; then set -- "${POSITIONAL[@]}"; fi
+
+CLIENT="${1:-}"   # Client identifier (e.g. username)
+TICKET="${2:-}"   # Ticket number
+DIR="${3:-}"      # Location where to create the new request directory
 
 # If the DIR argument is not provided
 # then use the current working directory
@@ -145,6 +154,28 @@ export R_HISTFILE="${NEW_DIR}/.Rhistory"
 mkdir -p "\$XDG_CACHE_HOME" "\$XDG_CONFIG_HOME" "\$XDG_DATA_HOME" "\$XDG_STATE_HOME" "\$RENV_PATHS_ROOT"
 EOF
 
+# Activate the selected language toolset(s): when module_load.sh is sourced, put
+# this repo's bin/<lang> on PATH so the language's tools are available. Chosen at
+# creation via --lang (comma-separated); edit module_load.sh later to change.
+if [ -n "${LANGS}" ]; then
+  IFS=',' read -ra _LANGS <<< "${LANGS}"
+  for _lang in "${_LANGS[@]}"; do
+    _lang="$(echo "${_lang}" | tr -d '[:space:]')"
+    [ -z "${_lang}" ] && continue
+    if [ -d "${REPO_DIR}/bin/${_lang}" ]; then
+      {
+        echo ""
+        echo "# >>> ${_lang} toolset (added by new_request.sh --lang) >>>"
+        echo "export PATH=\"${REPO_DIR}/bin/${_lang}:\$PATH\""
+        echo "# <<< ${_lang} toolset <<<"
+      } >> "${NEW_DIR}/${SCC_ENV_FILE}"
+    else
+      printf "WARNING: unknown language toolset '%s' (no %s) -- skipping\n" \
+             "${_lang}" "${REPO_DIR}/bin/${_lang}"
+    fi
+  done
+fi
+
 # Add a per-request CLAUDE.md describing the workspace structure, so Claude has
 # context when helping troubleshoot. Tracked in git (durable request doc).
 if [ -f "${REPO_DIR}/templates/CLAUDE.md" ]; then
@@ -178,15 +209,18 @@ fi
 # to track changes as the code is modified.
 git init
 
-# Point the facilitator at the next steps. The R helpers live in this repo's
-# bin/; with that on PATH they can be run from any workspace.
+# Point the facilitator at the next steps. Language tools live in this repo's
+# bin/<lang>/ and are put on PATH by the workspace's module_load.sh (per --lang).
 cat << MSG
 
 Created request workspace: ${NEW_DIR}
+Activated language toolset(s): ${LANGS:-none (add with --lang, or edit module_load.sh)}
 
-To set up an R environment for it (with ${REPO_DIR}/bin on your PATH):
-  r_env.sh R/4.5.2 "${NEW_DIR}"        # one-time setup
-  source "${NEW_DIR}/module_load.sh"   # activate this + future sessions
-  # scp the researcher's R library into the R_LIBS_USER shown above
-  r_snapshot.sh "${NEW_DIR}"           # record env_setup/renv.lock
+Next steps:
+  source "${NEW_DIR}/module_load.sh"     # activate env + put bin/<lang> on PATH
+  # --- for an R request ---
+  r_env.sh R/4.5.2 "${NEW_DIR}"          # one-time R setup
+  source "${NEW_DIR}/module_load.sh"     # re-source to load the R env it recorded
+  # scp the researcher's R library into the R_LIBS_USER shown on activation
+  r_snapshot.sh "${NEW_DIR}"             # record env_setup/renv.lock
 MSG
