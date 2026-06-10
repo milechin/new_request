@@ -1,88 +1,95 @@
 # New Request
 ## Description
 
-As an HPC facilitator I assist researchers with troubleshooting their code or optimizing their code.  To keep my work organized I created this bash script that generates a directory structure to support my work for any new request I recieve.  
+As an HPC facilitator I assist researchers with troubleshooting or optimizing their code.  To keep my work organized I created this tooling that generates a directory structure to support my work for any new request I receive, plus helper scripts and Claude Code assets for diagnosing common build/environment problems.
 
 ## Requirements
 
-Git needs to be installed. The R helper scripts in `bin/` use LMOD `module` commands (BU SCC); add `bin/` to your `PATH` to use them (see [R environment helpers](#r-environment-helpers-bin)).
-
-## Usage
-
-```console
-Syntax: new_request.sh CLIENT TICKET DIR
-Arguments:
-    CLIENT     A client identifier (e.g. username).
-    TICKET     Request identifier (e.g. ticket number).
-    DIR        Location to create directory hierarchy (if blank defaults to pwd).
-```
-
-`new_request.sh` lives in this repo's `bin/` directory (alongside the R helpers); with `bin/` on your `PATH` you can run it from anywhere. It creates a new request directory using the CLIENT and TICKET arguments as unique identifiers, and initializes it as a git repository.  For example, the command below creates a directory "bob/123456" in the current working directory:
-
-```console
-new_request.sh bob 123456
-Initialized empty Git repository in /projectnb/dvm-rcs/client/bob/123456/.git/
-```
-
-The script will also generate a `.gitignore` file with the following contents:
-
-https://github.com/milechin/new_request/blob/a57c0438959f6d932095db86f053476db39b7a09/new_request.sh#L74-L76
-
-## R environment helpers (`bin/`)
-
-The R helper scripts live in this repo's **`bin/`** directory and are run against any request workspace (they are no longer copied into each workspace). Add `bin/` to your `PATH` once so they're available everywhere — e.g. in `~/.bashrc`:
+Git needs to be installed. Helper scripts under `bin/` use LMOD `module` commands (BU SCC). Add `bin/` to your `PATH` for the **common** tools (`new_request.sh`, `triage_build_log.sh`) — e.g. in `~/.bashrc`:
 
 ```console
 export PATH="/path/to/new_request/bin:$PATH"
 ```
 
- - `r_env.sh [R_MODULE] [WORKSPACE]` — one-time setup: loads the R module, creates a per-module package library inside the workspace, installs the packages VSCode needs, and records the R environment in the workspace's `module_load.sh` and `.gitignore`. **Run** it (do not source); `WORKSPACE` defaults to the current directory. Activate afterwards with `source <workspace>/module_load.sh`.
- - `r_snapshot.sh [WORKSPACE]` — records the workspace's isolated R library into `env_setup/renv.lock`, a manifest of exactly what was reproduced. Uses [renv](https://rstudio.github.io/renv/) only to *document* the library — it does not install or change packages. `WORKSPACE` defaults to the current directory.
+Per-language tools live in `bin/<lang>/` and are **activated per request** via the workspace's `module_load.sh` (see Usage), so they aren't all on your PATH at once.
+
+## Usage
+
+```console
+Syntax: new_request.sh CLIENT TICKET [DIR] [--lang LANGS]
+Arguments:
+    CLIENT     A client identifier (e.g. username).
+    TICKET     Request identifier (e.g. ticket number).
+    DIR        Location to create directory hierarchy (if blank defaults to pwd).
+    --lang     Comma-separated language toolset(s) to activate, e.g. --lang r
+               or --lang r,python . Puts bin/<lang> on PATH when the workspace's
+               module_load.sh is sourced.
+```
+
+`new_request.sh` lives in this repo's `bin/`; with `bin/` on your `PATH` you can run it from anywhere. It creates a new request directory using CLIENT and TICKET as unique identifiers and initializes it as a git repository.  For example:
+
+```console
+new_request.sh bob 123456 --lang r
+Initialized empty Git repository in /projectnb/dvm-rcs/client/bob/123456/.git/
+```
+
+## Helper scripts (`bin/`)
+
+Scripts are organized by language and maintained once (not copied into each workspace):
+
+- **Common (top-level `bin/`):**
+  - `new_request.sh` — scaffold a request workspace.
+  - `triage_build_log.sh [LOG|WORKSPACE]` — analyze **any** build/compile/install log: strips warning noise, finds the real error, detects the ecosystem, and classifies it (SUCCESS / COMPILE-ERROR / LINK-ERROR / OOM-KILL / MISSING-DEPENDENCY / CONFIGURE-ERROR / ENV-NOT-ACTIVATED / UNKNOWN). Backs the `triage-build-log` Claude skill.
+- **R (`bin/r/`):**
+  - `r_env.sh [R_MODULE] [WORKSPACE]` — one-time setup: loads the R module, makes a per-module package library in the workspace, installs the packages VSCode needs, and records the R env in the workspace's `module_load.sh` + `.gitignore`. **Run** it (don't source); activate afterwards with `source <workspace>/module_load.sh`.
+  - `r_snapshot.sh [WORKSPACE]` — records the workspace's R library into `env_setup/renv.lock` (a manifest). Uses [renv](https://rstudio.github.io/renv/) only to *document* the library, not change it.
+  - `r_install.sh <pkg> [WORKSPACE]` — reproduce a researcher's R package install in the workspace and report a classified outcome (via `triage_build_log.sh`).
+- **`bin/python/`** — placeholder for future Python tools.
 
 ## Reproducing a researcher's R environment
 
-When troubleshooting, reproduce the researcher's R environment inside the request's isolated library and capture a manifest of it. With `bin/` on your `PATH`, the flow is four steps; **step 3 (the copy) is manual**:
+Reproduce the researcher's R environment inside the request's isolated library and capture a manifest. With the workspace created via `--lang r`, the flow is; **step 4 (the copy) is manual**:
 
-1. **Set up the R environment** (one-time):
-
-   ```console
-   r_env.sh R/4.5.2 /path/to/request
-   ```
-
-2. **Activate it** (now and in future sessions):
-
+1. **Activate the workspace** (puts `bin/r` on PATH + sets up isolation):
    ```console
    source /path/to/request/module_load.sh
    ```
-
-3. **Copy the researcher's R library into `$R_LIBS_USER`** — done manually with `scp`, since it requires logging in as the researcher to read their home directory. This is a byte-for-byte copy, valid only on the same cluster / same R version, where the compiled packages match.
-
-4. **Record the manifest.** Writes `env_setup/renv.lock` describing every reproduced package (version + source) and the R version:
-
+2. **Set up the R environment** (one-time):
+   ```console
+   r_env.sh R/4.5.2 /path/to/request
+   source /path/to/request/module_load.sh    # re-source to load the recorded R env
+   ```
+3. *(skip if already activated)*
+4. **Copy the researcher's R library into `$R_LIBS_USER`** — done manually with `scp` (it requires logging in as the researcher). Byte-for-byte copy, valid only on the same cluster / same R version.
+5. **Record the manifest:**
    ```console
    r_snapshot.sh /path/to/request
    ```
 
-`renv.lock` is committed to git (it is small and is the record of what was reproduced). The reproduced library under `R/<version>/` is **not** tracked. You do **not** need the researcher to have used renv — `renv.lock` is generated from whatever packages you copied in.
+`renv.lock` is committed (the record of what was reproduced); the reproduced `R/<version>/` library is not. You do **not** need the researcher to have used renv.
 
+## Diagnosing build/install failures
+
+- For a failing R package install, ask Claude Code to use the **`r-install-debugger`** subagent (or run `r_install.sh <pkg>` yourself): it reproduces the install in the workspace and returns a classified verdict.
+- For any build log (R, Python, C/C++, Fortran), run `triage_build_log.sh <log>` or invoke the **`/triage`-style `triage-build-log` skill** in Claude Code. It declares the ecosystems it supports and reports back if a log's language is outside that set, instead of guessing.
 
 ## Directory Structure
 
-Below is the directory structure the bash script will create:
+The scaffolder creates:
 
-- *data* - Directory to store relevant data used by the client's scripts.
-- *env_setup* - Holds `renv.lock` (the reproduced-package manifest, tracked) and `.renv-tools/` (gitignored). The R helper scripts live centrally in this repo's `bin/`, not here.
-- *scripts* - Directory to store the client's scripts.
-- *output* - Directory to store the output data generated by the client's scripts.
-- *context* - Directory for request context: `problem.md` (describe the issue) and `links.md` (relevant URLs/tickets) for you to fill in; `/init-request` also writes `SUMMARY.md` here.
-- *CLAUDE.md* - A per-workspace map of the directory structure and working conventions, so Claude Code has context when helping you troubleshoot.
-- *module_load.sh* - A script (meant to be `source`d) that can be updated with `module load` commands and any other environment settings. It also exports `XDG_*`, `RENV_PATHS_ROOT`, and `R_ENVIRON_USER`/`R_PROFILE_USER`/`R_HISTFILE` pointed into the request directory, so package/tool caches, config, data, history, and the renv cache stay in the workspace instead of your home directory (`~/.cache`, `~/.config`, ...). This is best-effort — scripts that hardcode `~` or absolute home paths can still write to your home; use a container or throwaway user for hard isolation.
+- *data* — relevant data used by the client's scripts.
+- *env_setup* — holds `renv.lock` (the reproduced-package manifest, tracked) and `.renv-tools/` (gitignored). The helper scripts live centrally in this repo's `bin/<lang>/`, not here.
+- *scripts* — the client's scripts.
+- *output* — output generated by the client's scripts (e.g. `*_install.log`).
+- *context* — request context: `problem.md` and `links.md` for you to fill in; `/init-request` also writes `SUMMARY.md`.
+- *CLAUDE.md* — per-workspace map of the layout + conventions, so Claude Code has context.
+- *module_load.sh* — sourced to activate the workspace: loads modules, puts the request's `bin/<lang>` toolset(s) on PATH, and exports `XDG_*`, `RENV_PATHS_ROOT`, and `R_ENVIRON_USER`/`R_PROFILE_USER`/`R_HISTFILE` into the request directory so caches/config/data/history stay in the workspace, not your home (`~/.cache`, ...). Best-effort — scripts that hardcode `~` or absolute home paths can still escape; use a container or throwaway user for hard isolation.
 
 ## Troubleshooting context for Claude
 
-Each request workspace is set up to give [Claude Code](https://claude.com/claude-code) the context it needs to help troubleshoot:
+Each request workspace gives [Claude Code](https://claude.com/claude-code) the context it needs:
 
-1. Describe the issue in `context/problem.md` and add any relevant URLs/tickets to `context/links.md`.
-2. Run the **`/init-request`** slash command in the workspace. It reads `CLAUDE.md` (structure), `context/`, `scripts/`, and the R environment, then writes a `context/SUMMARY.md` overview and reports what it found.
+1. Describe the issue in `context/problem.md` and add relevant URLs/tickets to `context/links.md`.
+2. Run the **`/init-request`** slash command in the workspace — it reads `CLAUDE.md`, `context/`, `scripts/`, and the environment, writes `context/SUMMARY.md`, and reports.
 
-Each workspace's `.claude/` is a **symlink to this repo's own `.claude/`**, so every Claude command/skill lives in one place: add or edit one here (e.g. `.claude/commands/`, `.claude/skills/`) and every workspace — existing and new — picks it up, no re-scaffolding. (The workspace `.claude` symlink is gitignored, since it's an absolute path back into this repo.)
+Each workspace's `.claude/` is a **symlink to this repo's own `.claude/`**, so every Claude command/skill/agent lives in one place: add or edit one here (`.claude/commands/`, `.claude/skills/`, `.claude/agents/`) and every workspace — existing and new — picks it up, no re-scaffolding. (The workspace `.claude` symlink is gitignored.)
