@@ -48,23 +48,23 @@ Scripts are organized by language and maintained once (not copied into each work
 
 ## Reproducing a researcher's R environment
 
-Reproduce the researcher's R environment inside the request's isolated library and capture a manifest. With the workspace created via `--lang r`, the flow is; **step 4 (the copy) is manual**:
+Reproduce the researcher's R environment inside the request's isolated library and capture a manifest; **step 3 (the copy) is manual**:
 
-1. **Activate the workspace** (puts `bin/r` on PATH + sets up isolation):
+1. **Set up the R environment** (one-time; run by path — it needs nothing on PATH and writes the R block into `module_load.sh`):
+   ```console
+   /path/to/new_request/bin/r/r_env.sh R/4.5.2 /path/to/request
+   ```
+2. **Activate** (now and every future session — loads R, sets `R_LIBS_USER`, and puts the common `bin/` + the R toolset on PATH):
    ```console
    source /path/to/request/module_load.sh
    ```
-2. **Set up the R environment** (one-time):
-   ```console
-   r_env.sh R/4.5.2 /path/to/request
-   source /path/to/request/module_load.sh    # re-source to load the recorded R env
-   ```
-3. *(skip if already activated)*
-4. **Copy the researcher's R library into `$R_LIBS_USER`** — done manually with `scp` (it requires logging in as the researcher). Byte-for-byte copy, valid only on the same cluster / same R version.
-5. **Record the manifest:**
+3. **Copy the researcher's R library into `$R_LIBS_USER`** — done manually with `scp` (it requires logging in as the researcher). Byte-for-byte copy, valid only on the same cluster / same R version.
+4. **Record the manifest:**
    ```console
    r_snapshot.sh /path/to/request
    ```
+
+To switch R versions later, just re-run step 1 with a different `R/X.Y`; `r_env.sh` replaces the R block in `module_load.sh` (re-source to pick it up).
 
 `renv.lock` is committed (the record of what was reproduced); the reproduced `R/<version>/` library is not. You do **not** need the researcher to have used renv.
 
